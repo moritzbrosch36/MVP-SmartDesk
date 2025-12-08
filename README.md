@@ -8,8 +8,8 @@ cd <PROJEKT-ORDNER>
 
 # 2. Virtuelle Umgebung erstellen & aktivieren
 python -m venv .venv
-source .venv/bin/activate   # macOS / Linux
-# .venv\Scripts\activate    # Windows
+source .venv/bin/activate   # macOS / Linux 
+.venv\Scripts\activate    # Windows
 
 # 3. Abhängigkeiten installieren
 pip install -r requirements.txt
