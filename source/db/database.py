@@ -137,3 +137,23 @@ def generate_models(schema_path="source/db/db_schema.json"):
         models[model_name] = model_class
 
     return models
+
+# --------------------------------------------------------
+#               GET_MODEL
+# --------------------------------------------------------
+MODEL_REGISTRY = {}
+
+def init_database(app):
+    db.init_app(app)
+
+    global MODEL_REGISTRY
+    MODEL_REGISTRY = generate_models()
+
+    with app.app_context():
+        db.create_all()
+
+
+def get_model(name: str):
+    if name not in MODEL_REGISTRY:
+        raise ValueError(f"Unknown model: {name}")
+    return MODEL_REGISTRY[name]
