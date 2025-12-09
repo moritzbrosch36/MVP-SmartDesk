@@ -29,7 +29,7 @@
       "created_at": "DateTime, default=datetime.utcnow",
       "updated_at": "DateTime, default=datetime.utcnow"
     },
-    "relationship": {
+    "relationships": {
       "invoices": {
         "model": "Invoice",
         "backref": "file_data"
