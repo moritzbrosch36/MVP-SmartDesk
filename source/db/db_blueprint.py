@@ -77,7 +77,7 @@ def parse_column(col_definition):
 # --------------------------------------------------------
 
 
-def generate_models(schema_path="models/db_schema.json"):
+def generate_models(schema_path="source/db/db_schema.json"):
     """
     Robuster Generator: baut in einem Durchgang Klassen mit allen Columns (inkl. PK/FKs).
     Vorherige Mapper werden aufgeräumt (clear_mappers) wenn nötig.
