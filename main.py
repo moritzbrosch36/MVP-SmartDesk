@@ -1,21 +1,23 @@
-import os
+import os.path
+
 from flask import Flask
-from source.db.database import db, generate_models
+from source.api.routes import bp
+from source.db.database import init_database
 
-def create_app():
-    app = Flask(__name__)
-    basedir = os.path.abspath(os.path.dirname(__file__))
-    app.config["SQLALCHEMY_DATABASE_URI"] = \
-        f"sqlite:///{os.path.join(basedir, 'source/db/smartdesk.db')}"
-    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app = Flask(__name__)
 
-    db.init_app(app)
+# DB konfigurieren
+basedir = os.path.abspath(os.path.dirname(__file__))
+app.config["SQLALCHEMY_DATABASE_URI"] = \
+    f"sqlite:///{os.path.join(basedir, 'source/db/smartdesk.db')}"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-    with app.app_context():
-        generate_models() # Models erzeugen
-        db.create_all()   # Tabellen automatisch erstellen
+# DB initialisieren + Models generieren
+init_database(app)
 
-    return app
+# Blueprint registrieren
+app.register_blueprint(bp)
+
 
 if __name__ == "__main__":
-    create_app()
+    app.run(debug=True)

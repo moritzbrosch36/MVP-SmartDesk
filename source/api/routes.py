@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from source.db.database import db
-from local_routes import crud_create, crud_read, crud_update, crud_delete, crud_get_one
+from source.services.crud import crud_create, crud_read, crud_update, crud_delete, crud_get_one
 
 bp = Blueprint("crud_bp", __name__)
 
@@ -37,7 +37,7 @@ def create(model_name):
 # ------------------------------------------
 # READ / GET ALL
 # ------------------------------------------
-@bp.route("/<model_name", methods=["GET"])
+@bp.route("/<model_name>", methods=["GET"])
 def read(model_name):
     models = get_models()
     model = models.get(model_name)
