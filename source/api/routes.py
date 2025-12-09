@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
-from source.db.db_blueprint import db
-from generic_crud import crud_create, crud_read, crud_update, crud_delete, crud_get_one
+from source.db.database import db
+from local_routes import crud_create, crud_read, crud_update, crud_delete, crud_get_one
 
 bp = Blueprint("crud_bp", __name__)
 

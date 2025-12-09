@@ -1,4 +1,4 @@
-from source.db.db_blueprint import db
+from source.db.database import db
 from sqlalchemy.inspection import inspect
 
 # Hilfsfunktion: SQLAlchemy Object -> dict

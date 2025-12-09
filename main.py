@@ -1,6 +1,6 @@
 import os
 from flask import Flask
-from source.db.db_blueprint import db, generate_models
+from source.db.database import db, generate_models
 
 def create_app():
     app = Flask(__name__)
