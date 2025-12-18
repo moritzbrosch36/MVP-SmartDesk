@@ -26,6 +26,7 @@
       "filename": "String(255), nullable=False",
       "file_path": "String(500), nullable=False",
       "file_type": "String(200), nullable=False",
+      "file_hash": "String(64), nullable=False",
       "created_at": "DateTime, default=datetime.utcnow",
       "updated_at": "DateTime, default=datetime.utcnow"
     },
@@ -50,6 +51,7 @@
       "amount": "Float, nullable=False",
       "currency": "String(20), nullable=False, default='EUR'",
       "description": "String(1000)",
+      "invoice_hash": "String(64)",
       "created_at": "DateTime, default=datetime.utcnow",
       "updated_at": "DateTime, default=datetime.utcnow"
     }
