@@ -1,23 +1,28 @@
-from source.models.base_schema import (BaseModel, Field, datetime,
-                                       List, FileDataRead, InvoiceRead)
-# Import der Basis_Elemente und forward References
+from __future__ import annotations
+from typing import List, TYPE_CHECKING
+from .base_schema import BaseSchema, Field, datetime
 
+# 1. TYPE_CHECKING: Ermöglicht Autocomplete ohne Laufzeit-Zyklen
+if TYPE_CHECKING:
+    from .file_data import FileDataRead
+    from .invoice import InvoiceRead
 
-# User
-class UserCreate(BaseModel):
-    name: str = Field(..., max_length=100) # dieses Feld ist erforderlich
+# --- Schemas für die Erstellung ---
+class UserCreate(BaseSchema):
+    name: str = Field(..., max_length=100)
 
+# --- Schemas für das Auslesen ---
 class UserRead(UserCreate):
     id: int
     created_at: datetime
 
-    # Verschachtelung der Beziehung (Nutzung der importierten String Referenzen)
-    file: List[FileDataRead] = []
-    invoices: List[InvoiceRead] = []
+    # 2. Nutzung von Strings für die Listen-Beziehungen
+    file: List["FileDataRead"] = []
+    invoices: List["InvoiceRead"] = []
 
-    class Config:
-        from_attributes = True
-
-# Wichtig: model_rebuild MUSS hier ausgeführt werden,
-# da die Klasse UserRead in dieser Datei definiert wurde.
-UserRead.model_rebuild()
+# --- Pydantic "Heilung" ---
+# Hier werden die Abhängigkeiten aufgelöst, sobald alle Dateien geladen sind.
+if not TYPE_CHECKING:
+    from .file_data import FileDataRead
+    from .invoice import InvoiceRead
+    UserRead.model_rebuild()
