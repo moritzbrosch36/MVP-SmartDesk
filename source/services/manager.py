@@ -4,6 +4,10 @@ from llm_input import extract_query_intent
 from llm_output import generate_final_response
 from search_agent import database_agent
 
+import warnings
+# Unterdrückt die Serialisierungs-Warnungen von Pydantic/LiteLLM
+warnings.filterwarnings("ignore", message="Pydantic serializer warnings")
+
 
 def orchestrator(user_input: str):
     """

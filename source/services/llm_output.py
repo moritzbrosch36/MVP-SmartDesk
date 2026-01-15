@@ -51,4 +51,8 @@ def generate_final_response(original_query: str, db_results: list) -> str:
         temperature=0.7  # Ein bisschen Kreativität für natürlichere Sprache
     )
 
-    return response.choices[0].message.content
+    # Greife explizit auf den String-Inhalt zu,
+    # anstatt das Objekt zurückzugeben oder im Ganzen zu loggen
+    final_text = response.choices[0].message.content
+
+    return str(final_text)  # Sicherstellen, dass es ein reiner String ist
