@@ -25,7 +25,7 @@ def load_schema_context() -> str:
 
     if not schema_path.exists():
         # Fallback für Tests direkt im Services-Ordner
-        schema_path = Path(__file__).parent.parent / "db" / "schema.json"
+        schema_path = Path(__file__).parent.parent / "db" / "db_schema.json"
 
     with open(schema_path, "r", encoding="utf-8") as f:
         schema_data = json.load(f)
