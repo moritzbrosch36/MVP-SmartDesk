@@ -19,7 +19,7 @@ class DatabaseQuery(BaseModel):
     explanation: str
 
 def load_schema_context() -> str:
-    # Navigiert zu source/db/schema.json
+    # Navigiert zu source/db/db_schema.json
     base_path = Path(__file__).resolve().parent.parent
     schema_path = base_path / "db" / "db_schema.json"
 
