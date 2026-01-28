@@ -34,19 +34,22 @@ class DatabaseQuery(BaseModel):
 # --- Hilfsfunktionen ---
 def load_schema_context() -> str:
     """Lädt das Schema und bereitet es für den System-Prompt auf."""
+    # Navigiert zu source/db/db_schema.json
     base_path = Path(__file__).resolve().parent.parent
     schema_path = base_path / "db" / "db_schema.json"
-
+    
     if not schema_path.exists():
+        # Fallback für Tests direkt im Services-Ordner
         schema_path = Path(__file__).parent.parent / "db" / "db_schema.json"
-
+    
     with open(schema_path, "r", encoding="utf-8") as f:
         schema_data = json.load(f)
-
+    
     context = "DATENBANK-SCHEMA (Verfügbare Tabellen und Spalten):\n"
     for table, details in schema_data.items():
         columns = ", ".join(details["columns"].keys())
         context += f"- Tabelle: '{table.lower()}' | Spalten: [{columns}]\n"
+    
     return context
 
 
