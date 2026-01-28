@@ -9,7 +9,7 @@ from source.services.processor import process_invoices_from_folder
 
 # --- KONFIGURATION ---
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-WATCH_DIRECTORY = os.path.join(BASE_DIR, "source", "Test_Rechnungen")
+WATCH_DIRECTORY = os.path.join(BASE_DIR, "source", "Test_Invoices")
 DEFAULT_USER = "LokalAdmin"
 
 
