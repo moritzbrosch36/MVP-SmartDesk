@@ -1,12 +1,8 @@
 import logging
 
-from llm_input import extract_query_intent
-from llm_output import generate_final_response
-from search_agent import database_agent
-
-import warnings
-# Unterdrückt die Serialisierungs-Warnungen von Pydantic/LiteLLM
-warnings.filterwarnings("ignore", message="Pydantic serializer warnings")
+from source.services.llm_input import extract_query_intent
+from source.services.llm_output import generate_final_response
+from source.services.search_agent import database_agent
 
 
 def orchestrator(user_input: str):
@@ -22,7 +18,7 @@ def orchestrator(user_input: str):
         query_plan = extract_query_intent(user_input)
 
         # --- FIX: NORMALISIERUNG ---
-        # Wir erzwingen Kleinschreibung für die Tabelle, damit 'Invoice' zu 'invoice' wird.
+        # Erzwingen Kleinschreibung für die Tabelle, damit 'Invoice' zu 'invoice' wird.
         # Das verhindert den Fehler "Kein Model für Tabelle gefunden".
         query_plan.main_table = query_plan.main_table.lower()
 

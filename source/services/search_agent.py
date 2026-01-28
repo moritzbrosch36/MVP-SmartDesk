@@ -1,77 +1,88 @@
 from typing import List
+import logging
 
+from source.db.database import get_model
 from source.services.llm_input import DatabaseQuery
-from source.models.user import UserRead
-from source.models.file_data import FileDataRead
-from source.models.invoice import InvoiceRead
+from source.models import UserRead, FileDataRead, InvoiceRead
 
-# Mapping von Tabellenname zu Pydantic-Model
-# Wichtig: Alles kleingeschrieben, passend zur Normalisierung im Manager
-MODEL_MAP = {
+PYDANTIC_MAP = {
     "user": UserRead,
     "file_data": FileDataRead,
     "invoice": InvoiceRead,
     "invoices": InvoiceRead
 }
 
+REGISTRY_MAP = {
+    "user": "User",
+    "file_data": "FileData",
+    "invoice": "Invoice",
+    "invoices": "Invoice"
+}
+
 
 def database_agent(query_plan: DatabaseQuery) -> List:
-    """
-    Diese Woche: Simuliert die DB-Abfrage.
-    Nächste Woche: Hier kommt die echte SQL-Logik rein.
-    """
     table_name = query_plan.main_table.lower()
-    target_model = MODEL_MAP.get(table_name)
+    registry_key = REGISTRY_MAP.get(table_name)
 
-    if not target_model:
-        raise ValueError(f"Tabelle '{table_name}' existiert nicht.")
+    if not registry_key:
+        raise ValueError(f"Tabelle '{table_name}' nicht definiert.")
 
-    # --- SIMULATION DER SUCHE ---
-    # Wir schauen uns an, was der Nutzer gesucht hat (z.B. 'Amazon')
-    search_value = ""
-    if query_plan.filters:
-        # Wir nehmen einfach den Wert des ersten Filters für die Demo
-        search_value = str(query_plan.filters[0].value).lower()
+    try:
+        SqlModel = get_model(registry_key)
+    except ValueError as e:
+        logging.error(f"Konnte Model {registry_key} nicht finden: {e}")
+        raise ValueError(f"Tabelle '{registry_key}' existiert nicht.")
 
-    # Wir erstellen eine Liste mit Dummy-Daten
-    all_mock_data = {
-        "invoice": [
-            {"id": 1, "company": "Amazon", "amount": 120.50, "invoice_number": "INV-001", "due_date": "2026-02-01",
-             "user_id": 1, "file_data_id": 1},
-            {"id": 2, "company": "Apple", "amount": 999.00, "invoice_number": "INV-002", "due_date": "2026-03-15",
-             "user_id": 1, "file_data_id": 2},
-        ]
-    }
+    query = SqlModel.query
 
-    # Filtern simulieren
-    results = []
-    data_list = all_mock_data.get(table_name, [])
+    for f in query_plan.filters:
+        col_name = f.column.lower()
 
-    for item in data_list:
-        if not search_value or search_value in item.get("company", "").lower():
-            # 1. Der User der Rechnung
-            mock_user = {
-                "id": 1,
-                "name": "Test User",
-                "created_at": "2026-01-01T10:00:00"
-            }
+        # NEU: Sicherheits-Check gegen halluzinierte technische IDs
+        # Wenn das LLM versucht nach user_id mit einem Dict zu filtern, ignorieren wir das im MVP.
+        if col_name == "user_id" and isinstance(f.value, dict):
+            logging.info("Ignoriere technischen user_id Filter (Dictionary-Bereinigung).")
+            continue
 
-            item["user"] = mock_user
-            item["created_at"] = "2026-01-01T10:00:00"
-            item["updated_at"] = "2026-01-01T10:00:00"
+        if hasattr(SqlModel, col_name):
+            column = getattr(SqlModel, col_name)
+            val = f.value
 
-            # 2. Die Dateidaten inkl. dem User der Datei (WICHTIG!)
-            item["file_data"] = {
-                "id": 1,
-                "user_id": 1,
-                "filename": "test.pdf",
-                "file_path": "/tmp",
-                "file_type": "pdf",
-                "created_at": "2026-01-01T10:00:00",
-                "updated_at": "2026-01-01T10:00:00",
-                "user": mock_user  # <-- DIES hat gefehlt!
-            }
+            # Bereinigung falls doch noch ein Dict durchrutscht
+            if isinstance(val, dict):
+                val = val.get("value") or val.get("id") or list(val.values())[-1]
 
-            results.append(target_model(**item))
+            if f.operator == "==":
+                query = query.filter(column == val)
+            elif f.operator == "like":
+                query = query.filter(column.ilike(f"%{val}%"))
+            elif f.operator == ">":
+                query = query.filter(column > val)
+            elif f.operator == "<":
+                query = query.filter(column < val)
+            elif f.operator == ">=":
+                query = query.filter(column >= val)
+            elif f.operator == "<=":
+                query = query.filter(column <= val)
+            elif f.operator == "in":
+                if not isinstance(val, list):
+                    val = [val]
+                query = query.filter(column.in_(val))
+        else:
+            logging.warning(f"Spalte '{col_name}' nicht in '{registry_key}' gefunden.")
 
-    return results
+    db_results = query.all()
+    TargetPydantic = PYDANTIC_MAP.get(table_name)
+
+    if not TargetPydantic:
+        return db_results
+
+    final_results = []
+    for row in db_results:
+        try:
+            final_results.append(TargetPydantic.model_validate(row))
+        except Exception as e:
+            logging.error(f"Validierungsfehler ID {row.id}: {e}")
+            continue
+
+    return final_results
