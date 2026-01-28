@@ -1,0 +1,9 @@
+{
+  "invoice_indicators": [
+    "rechnung", "invoice", "quittung", "beleg",
+    "rechnungsnummer", "ust-id", "faktura"
+  ],
+  "exclusion_keywords": [
+    "angebot", "bestellung", "lieferschein", "entwurf"
+  ]
+}
