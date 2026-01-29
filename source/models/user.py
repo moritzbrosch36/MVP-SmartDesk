@@ -1,8 +1,8 @@
 from __future__ import annotations
-from typing import List, TYPE_CHECKING
+from typing import List, TYPE_CHECKING, Optional
 from .base_schema import BaseSchema, Field, datetime
 
-# 1. TYPE_CHECKING: Ermöglicht Autocomplete ohne Laufzeit-Zyklen
+# TYPE_CHECKING verhindert Import-Zyklen zur Laufzeit
 if TYPE_CHECKING:
     from .file_data import FileDataRead
     from .invoice import InvoiceRead
@@ -16,12 +16,13 @@ class UserRead(UserCreate):
     id: int
     created_at: datetime
 
-    # 2. Nutzung von Strings für die Listen-Beziehungen
-    file: List["FileDataRead"] = []
-    invoices: List["InvoiceRead"] = []
+    # WICHTIG: Wir lassen die Listen für Beziehungen hier weg oder
+    # setzen sie auf Optional, um Recursion Loops zu vermeiden.
+    # Für die KI-Antworten reicht meistens das User-Objekt selbst.
+    # file: List["FileDataRead"] = []
+    # invoices: List["InvoiceRead"] = []
 
 # --- Pydantic "Heilung" ---
-# Hier werden die Abhängigkeiten aufgelöst, sobald alle Dateien geladen sind.
 if not TYPE_CHECKING:
     from .file_data import FileDataRead
     from .invoice import InvoiceRead
