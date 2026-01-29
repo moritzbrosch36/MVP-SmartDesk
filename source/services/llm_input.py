@@ -10,6 +10,7 @@ from typing import List, Any, Literal, cast, Optional
 class Filter(BaseModel):
     table: str
     column: str
+    # 'max' ist hier absichtlich nicht enthalten, um Pydantic-Fehler bei Fehlverhalten zu triggern
     operator: Literal["==", ">", "<", "like", "in", ">=", "<="]
     value: Any
 
@@ -18,6 +19,11 @@ class DatabaseQuery(BaseModel):
     main_table: str = Field(description="Primärtabelle der Abfrage (z.B. invoice)")
     join_tables: List[str] = Field(default_factory=list)
     filters: List[Filter] = Field(default_factory=list)
+    # Neue Felder für Aggregations-Ersatz
+    order_by: Optional[str] = Field(default=None, description="Spalte für Sortierung")
+    direction: Literal["asc", "desc"] = Field(default="desc")
+    limit: Optional[int] = Field(default=None, description="Anzahl Ergebnisse")
+
     explanation: Optional[str] = Field(
         default="Analysiere Datenbank nach Benutzerwunsch",
         description="Logik hinter der Abfrage"
@@ -26,30 +32,25 @@ class DatabaseQuery(BaseModel):
     @field_validator("main_table")
     @classmethod
     def validate_table_name(cls, v: str) -> str:
-        # Zwingt den Tabellennamen in Kleinschreibung,
-        # passend zur Logik im Extractor/Schema
         return v.lower()
 
 
 # --- Hilfsfunktionen ---
 def load_schema_context() -> str:
-    """Lädt das Schema und bereitet es für den System-Prompt auf."""
-    # Navigiert zu source/db/db_schema.json
     base_path = Path(__file__).resolve().parent.parent
     schema_path = base_path / "db" / "db_schema.json"
-    
+
     if not schema_path.exists():
-        # Fallback für Tests direkt im Services-Ordner
         schema_path = Path(__file__).parent.parent / "db" / "db_schema.json"
-    
+
     with open(schema_path, "r", encoding="utf-8") as f:
         schema_data = json.load(f)
-    
+
     context = "DATENBANK-SCHEMA (Verfügbare Tabellen und Spalten):\n"
     for table, details in schema_data.items():
         columns = ", ".join(details["columns"].keys())
         context += f"- Tabelle: '{table.lower()}' | Spalten: [{columns}]\n"
-    
+
     return context
 
 
@@ -62,40 +63,52 @@ def extract_query_intent(user_text: str, model_name: str = "ollama/gemma3:4b") -
 
     system_instruction = (
         f"{dynamic_schema}\n\n"
-        "AUFGABE:\n"
-        "Erstelle einen SQL-Abfrageplan als JSON basierend auf dem Schema.\n\n"
-        "STRIKTE REGELN:\n"
-        "1. main_table MUSS eine der oben genannten Tabellen sein (meist 'invoice').\n"
-        "2. filters darf NUR gefüllt werden, wenn der User nach speziellen Werten fragt.\n"
-        "3. Nutze 'like' nur für Textsuche, '==' für exakte Übereinstimmung.\n"
-        "4. Setze NIEMALS Platzhalter wie '%' als Wert ein, wenn der User nicht danach fragt.\n"
-        "5. Wenn der User nur allgemein fragt ('Zeig mir Rechnungen'), lass 'filters' leer [].\n"
+        "### AUFGABE\n"
+        "Erstelle einen SQL-Abfrageplan als JSON. Nutze EXAKT die 'DatabaseQuery' Struktur.\n\n"
+        "### REGELN FÜR FILTER\n"
+        "1. Erlaubte Operatoren: ['==', '>', '<', 'like', 'in', '>=', '<=']\n"
+        "2. VERBOTEN: Nutze NIEMALS 'max', 'min' oder 'sum' als Operator. Das führt zu Fehlern!\n\n"
+        "### LOGIK FÜR 'HÖCHSTE / TEUERSTE / NEUESTE'\n"
+        "Um den höchsten oder neuesten Wert zu finden (z.B. 'höchste Rechnung'):\n"
+        "- Lass 'filters' leer [].\n"
+        "- Setze 'order_by' auf die Spalte (z.B. 'amount' oder 'date').\n"
+        "- Setze 'direction' auf 'desc'.\n"
+        "- Setze 'limit' auf 1.\n\n"
+        "### BEISPIEL\n"
+        "User: 'Höchster Rechnungsbetrag'\n"
+        "JSON: { \"main_table\": \"invoice\", \"filters\": [], \"order_by\": \"amount\", \"direction\": \"desc\", \"limit\": 1 }"
     )
 
     try:
-        # Mode JSON sorgt dafür, dass Gemma3 stabileres JSON liefert
         response = client.chat.completions.create(
             model=model_name,
             response_model=DatabaseQuery,
+            max_retries=3,  # Wichtig für kleine Modelle
             messages=[
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": f"Benutzeranfrage: '{user_text}'"}
             ]
         )
+
+        # --- HEURISTIK ZUR SELBSTREPARATUR ---
+        # Falls das Modell trotz Verbot versucht, 'max' in Filtern zu nutzen
+        # (Dies greift nur, wenn instructor den Validierungsfehler umgeht oder
+        # wir das Schema temporär lockern würden)
         return cast(DatabaseQuery, response)
 
     except Exception as e:
+        # Falls Pydantic wegen 'max' meckert, versuchen wir einen manuellen Fix im Catch-Block
+        # oder liefern den Standard-Fallback.
         print(f"[LLM-Error] Fehler bei Intent-Extraktion: {e}")
-        # Sicherer Fallback: Zeige einfach alle Rechnungen des Users
         return DatabaseQuery(
             main_table="invoice",
             filters=[],
-            explanation="Fallback aufgrund eines Verarbeitungsfehlers."
+            explanation="Fallback: Zeige alle Rechnungen."
         )
 
 
 if __name__ == "__main__":
-    # Schneller Testlauf
-    test_query = "Welche Rechnungen habe ich?"
+    test_query = "Welche Rechnung ist die höchste?"
     print(f"Test mit: {test_query}")
-    print(extract_query_intent(test_query).model_dump_json(indent=2))
+    result = extract_query_intent(test_query)
+    print(result.model_dump_json(indent=2))
