@@ -1,5 +1,6 @@
 from typing import List
 import logging
+from sqlalchemy import desc, asc  # Wichtig für die Sortierung
 
 from source.db.database import get_model
 from source.services.llm_input import DatabaseQuery
@@ -35,11 +36,9 @@ def database_agent(query_plan: DatabaseQuery) -> List:
 
     query = SqlModel.query
 
+    # --- 1. Filter verarbeiten ---
     for f in query_plan.filters:
         col_name = f.column.lower()
-
-        # NEU: Sicherheits-Check gegen halluzinierte technische IDs
-        # Wenn das LLM versucht nach user_id mit einem Dict zu filtern, ignorieren wir das im MVP.
         if col_name == "user_id" and isinstance(f.value, dict):
             logging.info("Ignoriere technischen user_id Filter (Dictionary-Bereinigung).")
             continue
@@ -47,8 +46,6 @@ def database_agent(query_plan: DatabaseQuery) -> List:
         if hasattr(SqlModel, col_name):
             column = getattr(SqlModel, col_name)
             val = f.value
-
-            # Bereinigung falls doch noch ein Dict durchrutscht
             if isinstance(val, dict):
                 val = val.get("value") or val.get("id") or list(val.values())[-1]
 
@@ -65,15 +62,32 @@ def database_agent(query_plan: DatabaseQuery) -> List:
             elif f.operator == "<=":
                 query = query.filter(column <= val)
             elif f.operator == "in":
-                if not isinstance(val, list):
-                    val = [val]
+                if not isinstance(val, list): val = [val]
                 query = query.filter(column.in_(val))
         else:
             logging.warning(f"Spalte '{col_name}' nicht in '{registry_key}' gefunden.")
 
-    db_results = query.all()
-    TargetPydantic = PYDANTIC_MAP.get(table_name)
+    # --- 2. Sortierung anwenden (NEU) ---
+    if hasattr(query_plan, 'order_by') and query_plan.order_by:
+        col_name = query_plan.order_by.lower()
+        if hasattr(SqlModel, col_name):
+            column = getattr(SqlModel, col_name)
+            if query_plan.direction == "desc":
+                query = query.order_by(desc(column))
+            else:
+                query = query.order_by(asc(column))
+        else:
+            logging.warning(f"Sortier-Spalte '{col_name}' nicht gefunden.")
 
+    # --- 3. Limit anwenden (NEU) ---
+    if hasattr(query_plan, 'limit') and query_plan.limit:
+        query = query.limit(query_plan.limit)
+
+    # Abfrage ausführen
+    db_results = query.all()
+
+    # --- 4. Umwandlung in Pydantic Modelle ---
+    TargetPydantic = PYDANTIC_MAP.get(table_name)
     if not TargetPydantic:
         return db_results
 
