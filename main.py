@@ -1,6 +1,16 @@
 import os
 import sys
+import warnings
 from flask import Flask
+
+# Unterdrücke die spezifischen Pydantic-Serialisierungs-Warnungen
+# (Muss vor dem Import des Orchestrators/LLM-Services stehen)
+try:
+    from pydantic import PydanticSerializerWarnings
+    warnings.filterwarnings("ignore", category=PydanticSerializerWarnings)
+except ImportError:
+    # Falls die Pydantic-Version die Klasse nicht kennt, ignorieren wir sie generisch
+    warnings.filterwarnings("ignore", message=".*Pydantic serializer warnings.*")
 
 # lokale Importe
 from source.db.database import init_database, get_model
