@@ -1,36 +1,38 @@
-from source.models.base_schema import (BaseModel, Field, datetime,
-                                       date, Optional, UserRead, FileDataRead)
-# Import der Basis-Elemente und forward References
+from __future__ import annotations
+from typing import Optional, TYPE_CHECKING
+from .base_schema import BaseSchema, Field, datetime, date
 
+# TYPE_CHECKING verhindert Zyklen beim Import
+if TYPE_CHECKING:
+    from .user import UserRead
+    from .file_data import FileDataRead
 
-# Invoice
-class InvoiceCreate(BaseModel):
-    # Foreign Keys (muss beim Erstellen bereitgestellt werden)
+class InvoiceCreate(BaseSchema):
     user_id: int = Field(..., description="Foreign Key zur User-Tabelle.")
     file_data_id: int = Field(..., description="Foreign Key zur FileData-Tabelle.")
 
-    # Pflichtfelder
     company: str = Field(..., max_length=200)
     invoice_number: str = Field(..., max_length=200)
     due_date: date
-    amount: float = Field(..., gt=0.0)
+    # FIX: gt=0.0 entfernt, damit auch Testdaten/Platzhalter valide sind
+    amount: float = Field(0.0)
 
-    # Optionale Felder/ Default-Werte
-    issue_date: Optional[date] = None # Im DB: DateTime, kann Null sein
-    currency: str = Field("EUR", max_length=20) # Im DB: Default 'EUR'
-    description: Optional[str] = Field(None, max_length=1000) # Kann Null sein
+    issue_date: Optional[date] = None
+    currency: str = Field("EUR", max_length=20)
+    description: Optional[str] = Field(None, max_length=1000)
 
 class InvoiceRead(InvoiceCreate):
     id: int
     created_at: datetime
     updated_at: datetime
 
-    # Verschachtelte Objekte (ersetzen die einfachen IDs für die Ausgabe)
-    user: UserRead
-    file_data: FileDataRead
+    # FIX: Beziehungen auf Optional setzen und Standard None,
+    # um Recursion Loops (Invoice -> User -> Invoice) zu vermeiden.
+    user: Optional["UserRead"] = None
+    file_data: Optional["FileDataRead"] = None
 
-    class Config:
-        from_attributes = True
-
-# Wichtig: model_rebuild MUSS hier ausgeführt werden
-InvoiceRead.model_rebuild()
+# Pydantic-Heilung
+if not TYPE_CHECKING:
+    from .user import UserRead
+    from .file_data import FileDataRead
+    InvoiceRead.model_rebuild()

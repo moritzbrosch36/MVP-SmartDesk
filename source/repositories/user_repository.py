@@ -1,7 +1,7 @@
 from source.db.database import get_model, db
 
 
-def get_or_create(name: str):
+def get_or_create_user(name: str):
     User = get_model("User")
 
     user = User.query.filter_by(name=name).first()
